@@ -15,7 +15,8 @@ In this notebook you will train your first neural network. Feel free to look bac
 #### Install dependencies freeze by poetry
 """
 
-
+#!python3 -m pip install --upgrade pip
+#!python3 -m pip install matplotlib numpy scikit-learn==0.23.2
 
 """#### Import the different module we will need in this notebook 
 
@@ -68,7 +69,7 @@ def data_length(dataset: np.array, target: np.array):
     return dataset_length, target_length
 
 
-data_length(mnist_data,mnist_target)
+#data_length(mnist_data,mnist_target)
 
 # Let's look at on image from this dataset 
 def plot_one_image(dataset: np.array, target: np.array, image_index: int):
@@ -79,7 +80,7 @@ def plot_one_image(dataset: np.array, target: np.array, image_index: int):
     plt.title(f"This is a {target}")
 
 
-plot_one_image(mnist_data, mnist_target ,0)
+plot_one_image(mnist_data, mnist_target ,50)
 
 # In a similar fashion to classical machine learning, we will create a test split to known if the neural network is learning well.
 
@@ -99,11 +100,11 @@ plot_one_image(X_test, y_test , 250)
 
 # It's important to normalize the data before feeding it into the neural network
 def normalize_data(dataset: np.array) -> np.array:
-    normalized_dataset = (dataset-np.min(dataset))/(np.max(dataset)-np.min(dataset))
-    # ou dataset/255
+    normalized_dataset = dataset/255
+    # ou (dataset-np.min(dataset))/(np.max(dataset)-np.min(dataset))
     return normalized_dataset
 
-normalized_data=normalize_data(mnist_data)
+#normalized_data=normalize_data(mnist_data)
 
 """It's also important to find a good representation of the target.
 
@@ -127,7 +128,7 @@ def target_to_one_hot(target: np.array) -> np.array:
     return one_hot_matrix
 
 
-target_to_one_hot(mnist_target.reshape(-1,1))
+#target_to_one_hot(mnist_target.reshape(-1,1))
 
 """## Useful functions (3 pts)
 
@@ -183,7 +184,7 @@ class FFNN:
         input_data = Layer()
         # TODO: initialize the Z matrix with the a matrix containing only zeros
         # its shape should be (minibatch_size, config[0])
-        input_data.Z = np.zeros(minibatch_size,config[0])
+        input_data.Z = np.zeros((minibatch_size,config[0]))
         self.layers.append(input_data)
                                         
         for i in range(1, len(config)):
@@ -195,7 +196,7 @@ class FFNN:
             layer.W = np.random.randn(ncols_prev,nnodes)
             # TODO: initilize the matrix Z in the layer with a matrix containing only zeros
             # its shape should be (nlines_prev, nnodes)
-            layer.Z = np.zeros(nlines_prev,nnodes)
+            layer.Z = np.zeros((nlines_prev,nnodes))
             # TODO: use the sigmoid activation function
             layer.activation = sigmoid
             self.layers.append(layer)
@@ -215,11 +216,8 @@ class FFNN:
     def forward_pass(self, input_data: np.array)-> np.array:
         # TODO: perform the whole forward pass using the on_step_forward function
         self.layers[0].Z = input_data     
-        for i in range(1,len(self.config)):
-            signal = self.layers[i-1].Z
-            cur_layer = self.layers[i]
-            _ = self.one_step_forward(signal, cur_layer);
-        
+        for i in range(1, self.nlayers):
+            self.layers[i].Z = self.one_step_forward(self.layers[i-1].Z, self.layers[i]) 
         return self.layers[-1].Z
 
         return reduce(self.one_step_forward, [input_data] + self.layers)
@@ -234,15 +232,9 @@ class FFNN:
         self.layers[-1].D = D_out.T
         # TODO: Compute the D matrix for all the layers (excluding the first one which corresponds to the input itself)
         # (you should only use self.layers[1:])     
-        
-        #for i in range(1,len(self.config)):
-        #    signal = self.layers[i-1].Z
-        #    cur_layer = self.layers[i]
-        #    _ = self.one_step_backward(signal, cur_layer);
-        
-        reduce(self.one_step_backward, self.layers[1:][::-1])
-
-        #return self.layers[-1].Z
+        for i in range(len(self.layers[1:])-1, 0, -1):
+            self.layers[i] = self.one_step_backward(self.layers[i+1], self.layers[i])
+        pass
     
     def update_weights(self, cur_layer: Layer, next_layer: Layer)-> Layer:
         # TODO: Update the W matrix of the next_layer using the current_layer and the learning rate
@@ -252,17 +244,18 @@ class FFNN:
     
     def update_all_weights(self)-> None:
         # TODO: Update all W matrix using the update_weights function
-        #for i in self.layer
-        #    self.update_weights(cur_layer, next_layer)
-        reduce(self.update_weights, self.layers)
+        for i in range(0, len(self.layers)-1):
+            self.layers[i+1] = self.update_weights(self.layers[i], self.layers[i+1])
         pass
         
     def get_error(self, y_pred: np.array, y_batch: np.array)-> float:
         # TODO: return the accuracy on the predictions
         # the accuracy should be in the [0.0, 1.0] range
-        prediction = np.argmax(y_pred, axis-1)
-        true = np.argmax(y_batch, axis-1)
-        accuracy = (val_pred == val_true).sum() / y_pred.shape[0]
+        prediction = 0
+        for i in range(0, len(y_pred)):
+            if(np.argmax(y_pred[i]) == np.argmax(y_batch[i])):
+                prediction += 1
+        accuracy = prediction/len(y_pred)
         return accuracy
     
     def get_test_error(self, X: np.array, y: np.array)-> float:
@@ -325,6 +318,13 @@ ffnn = FFNN(config=[784, 3, 3, 10], minibatch_size=minibatch_size, learning_rate
 assert X_train.shape[0] % minibatch_size == 0
 assert X_test.shape[0] % minibatch_size == 0
 
+X_test = normalize_data(X_test)
+y_test = target_to_one_hot(y_test.reshape(-1,1))
+
+
+X_train = normalize_data(X_train)
+y_train = target_to_one_hot(y_train.reshape(-1,1))
+
 err = ffnn.train(nepoch, X_train, y_train, X_test, y_test)
 
 """## Error analysis (2 pts)
@@ -335,6 +335,10 @@ It will help us understand why the neural network failed sometimes to classify i
 """
 
 nsample = 1000
+
+X_test = normalize_data(X_test)
+y_test = target_to_one_hot(y_test)
+
 X_demo = X_test[:nsample,:]
 y_demo = ffnn.forward_pass(X_demo)
 y_true = y_test[:nsample,:]
@@ -371,3 +375,4 @@ Also explain how the neural network behave when changing them ?
 TODO
 """
 
+pass
